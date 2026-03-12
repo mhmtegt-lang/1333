@@ -1,59 +1,59 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-# Sayfa Yapılandırması
-st.set_page_config(page_title="Matematik Asistanı: Ondalık Sıralama", layout="centered")
+st.set_page_config(page_title="Hayalet Sıfır Avı", layout="centered")
 
 st.title("👻 Hayalet Sıfırlarla Ondalık Sıralama")
-st.write("Ondalık sayılarda basamak sayılarını eşitleyerek sıralama yapmayı öğrenelim!")
+st.write("Sayıları karşılaştırmak için basamakları eşitleyelim!")
 
 # Kullanıcı Girişi
 st.sidebar.header("Sayıları Giriniz")
-input_numbers = st.sidebar.text_input("Sayıları virgül (,) ile ayırarak yazın:", "9.56, 9.6, 9.7")
+# Hem virgül hem boşlukla ayırmayı desteklemek için ipucu ekledik
+input_numbers = st.sidebar.text_input("Sayıları yazın (Örn: 5,2 5,12 5,3):", "9,56, 9,6, 9,7")
 
 if input_numbers:
-    # Sayıları temizle ve listeye al
-    raw_list = [num.strip() for num in input_numbers.split(",")]
+    # 1. TEMİZLİK: Girdiyi boşluklara veya virgüllere göre ayır
+    import re
+    # Virgül veya boşluk gördüğü her yerden böler
+    raw_list = re.split(r'[,\s]+', input_numbers.strip())
     
-    # En uzun virgülden sonraki basamak sayısını bul
-    max_decimal_places = 0
-    for num in raw_list:
-        if "." in num:
-            places = len(num.split(".")[1])
-            if places > max_decimal_places:
-                max_decimal_places = places
+    # 2. DÜZELTME: Türkçe virgülleri (.) noktaya çevir
+    clean_list = [num.replace(",", ".") for num in raw_list if num]
+    
+    try:
+        # En uzun virgülden sonraki basamak sayısını bul
+        max_decimal_places = 0
+        for num in clean_list:
+            if "." in num:
+                places = len(num.split(".")[1])
+                if places > max_decimal_places:
+                    max_decimal_places = places
 
-    st.subheader("🛠️ Adım Adım Somutlaştırma")
-    
-    data = []
-    for num in raw_list:
-        parts = num.split(".")
-        tam_kisim = parts[0]
-        unda_birler = parts[1] if len(parts) > 1 else ""
+        st.subheader("🛠️ Adım Adım Somutlaştırma")
         
-        # Hayalet sıfırları ekleme (Padding)
-        padded_num = f"{float(num):.{max_decimal_places}f}".replace(".", ",")
-        original_num = num.replace(".", ",")
+        data = []
+        for num in clean_list:
+            val = float(num)
+            # Hayalet sıfırları ekleme (Padding)
+            padded_num = f"{val:.{max_decimal_places}f}".replace(".", ",")
+            original_display = num.replace(".", ",")
+            
+            data.append({
+                "Orijinal Sayı": original_display,
+                "Hayalet Sıfırlı Hali": padded_num,
+                "Sayısal Değer": val
+            })
+
+        df = pd.DataFrame(data)
+        st.table(df[["Orijinal Sayı", "Hayalet Sıfırlı Hali"]])
+
+        # Sıralama Sonucu
+        sorted_df = df.sort_values(by="Sayısal Değer")
+        st.success("### ✅ Küçükten Büyüğe Sıralama")
+        result_str = " < ".join(sorted_df["Hayalet Sıfırlı Hali"].tolist())
+        st.latex(result_str)
         
-        data.append({
-            "Orijinal Sayı": original_num,
-            "Basamak Eşitlenmiş (Hayalet Sıfırlı)": padded_num,
-            "Değer": float(num)
-        })
+        st.bar_chart(df.set_index("Orijinal Sayı")["Sayısal Değer"])
 
-    # Tabloyu Göster
-    df = pd.DataFrame(data)
-    st.table(df[["Orijinal Sayı", "Basamak Eşitlenmiş (Hayalet Sıfırlı)"]])
-
-    st.info(f"**💡 Pedagojik Not:** Tüm sayıların virgülden sonra **{max_decimal_places}** basamağı olacak şekilde sonuna '0' ekledik. Bu, sayıların değerini değiştirmez, sadece kıyaslamayı kolaylaştırır.")
-
-    # Sıralama Sonucu
-    sorted_df = df.sort_values(by="Değer")
-    
-    st.success("### ✅ Küçükten Büyüğe Sıralama")
-    result_str = " < ".join(sorted_df["Basamak Eşitlenmiş (Hayalet Sıfırlı)"].tolist())
-    st.latex(result_str)
-
-    # Görselleştirme
-    st.bar_chart(df.set_index("Orijinal Sayı")["Değer"])
+    except ValueError:
+        st.error("Lütfen sadece sayı girdiğinizden emin olun! (Örn: 5,2 5,3)")
