@@ -1,77 +1,113 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 import re
 
-st.set_page_config(page_title="Hayalet Sıfır Avı", layout="centered")
+# Sayfa Ayarları
+st.set_page_config(page_title="Matematik Asistanı | Ondalık Sıralama", layout="centered")
 
 st.title("👻 Hayalet Sıfırlarla Ondalık Sıralama")
-st.markdown("### Sayıları karşılaştırmak için basamakları eşitleyelim!")
+st.markdown("""
+Bu uygulama, ondalık sayılarda **basamak eşitleme** mantığını somutlaştırmak için tasarlanmıştır. 
+Sayıların sonuna eklenen '0'lar, onların değerini değiştirmez ama kıyaslamayı kolaylaştırır!
+""")
 
-# Kullanıcı Girişi - Daha net yönerge
-st.sidebar.header("🔢 Veri Girişi")
-input_numbers = st.sidebar.text_input(
+# Yan Panel - Veri Girişi
+st.sidebar.header("🔢 Sayı Girişi")
+input_text = st.sidebar.text_input(
     "Sayıları boşluk bırakarak yazın:", 
     "9,56 9,6 9,7",
-    help="Örn: 5,2 5,12 5,3"
+    help="Örn: 1,2 1,25 1,3"
 )
 
-if input_numbers:
-    # 1. ADIM: Sayıları ayır (Boşluk veya Noktalı Virgül baz alınır)
-    # Virgülü ayırıcı olarak kullanmıyoruz ki 9,56 bölünmesin!
-    raw_list = re.split(r'[;\s]+', input_numbers.strip())
-    
-    # 2. ADIM: Türkçe virgülü (.) noktaya çevirip sayıya dönüştür
+if input_text:
+    # 1. Veri Temizleme (Boşluk veya noktalı virgülden ayır, virgülü noktaya çevir)
+    raw_list = re.split(r'[;\s]+', input_text.strip())
     clean_data = []
-    for num in raw_list:
-        if num:
+    
+    for r in raw_list:
+        if r:
             try:
-                dot_num = num.replace(",", ".")
-                clean_data.append({"orig": num, "val": float(dot_num)})
+                dot_val = r.replace(",", ".")
+                clean_data.append({"original": r, "value": float(dot_val)})
             except ValueError:
                 continue
 
     if clean_data:
-        # En uzun ondalık basamağı bul
+        # En uzun ondalık basamak sayısını bul
         max_p = 0
         for item in clean_data:
-            s_num = str(item['val'])
-            if "." in s_num:
-                p = len(s_num.split(".")[1])
+            s_val = str(item['value'])
+            if "." in s_val:
+                p = len(s_val.split(".")[1])
                 if p > max_p: max_p = p
 
-        # Veriyi Hazırla ve Hayalet Sıfırları Vurgula
-        display_list = []
+        # Veri Hazırlama ve Hayalet Sıfır Vurgusu
+        processed_list = []
         for item in clean_data:
-            # Sayıyı hedeflenen basamak sayısına tamamla
-            padded = f"{item['val']:.{max_p}f}".replace(".", ",")
-            orig = item['orig'].replace(".", ",")
+            padded = f"{item['value']:.{max_p}f}".replace(".", ",")
+            orig = item['original'].replace(".", ",")
             
-            # Hayalet sıfırları belirgin yap (Kalın yazarak)
-            diff = len(padded) - len(orig)
-            ghost_view = orig + f"**{padded[-diff:]}**" if diff > 0 else padded
+            # Farkı bulup hayalet sıfırları kalınlaştıralım
+            diff_len = len(padded) - len(orig)
+            ghost_display = orig + f"**{padded[-diff_len:]}**" if diff_len > 0 else padded
             
-            display_list.append({
-                "Orijinal Sayı": orig,
-                "Hayalet Sıfırlı Hali": ghost_view,
-                "Sayısal Değer": item['val']
+            processed_list.append({
+                "Orijinal": orig,
+                "Hayalet Sıfırlı": ghost_display,
+                "Değer": item['value'],
+                "Display": padded
             })
 
-        st.subheader("📊 Adım Adım Somutlaştırma")
-        df = pd.DataFrame(display_list)
-        
-        # Tabloyu markdown ile daha şık gösterelim (HTML desteğiyle)
-        st.write("Aşağıdaki tabloda eklenen **'Hayalet Sıfırlar'** kalın harflerle gösterilmiştir:")
-        st.table(df[["Orijinal Sayı", "Hayalet Sıfırlı Hali"]])
+        df = pd.DataFrame(processed_list)
 
-        # 3. ADIM: Sıralama
-        sorted_df = df.sort_values(by="Sayısal Değer")
+        # AŞAMA 1: Tablo Gösterimi
+        st.subheader("📊 1. Adım: Basamakları Eşitleyelim")
+        st.write("Eklenen **Hayalet Sıfırlar** kalın harflerle gösterilmiştir:")
+        st.table(df[["Orijinal", "Hayalet Sıfırlı"]])
+
+        # AŞAMA 2: Karşılaştırmalı Grafik (Zoomed-In)
+        st.subheader("📈 2. Adım: Büyüklükleri Kıyaslayalım")
         
+        fig, ax = plt.subplots(figsize=(8, 4))
+        # Farkı belirgin yapmak için Y eksenini daraltıyoruz
+        min_v, max_v = df["Değer"].min(), df["Değer"].max()
+        ax.set_ylim(min_v - 0.05, max_v + 0.05) 
+        
+        colors = ['#87CEEB', '#4682B4', '#000080']
+        bars = ax.bar(df["Orijinal"], df["Değer"], color=colors[:len(df)])
+        
+        # Bar üzerine değerleri yazma
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{height}'.replace(".", ","),
+                    ha='center', va='bottom', fontweight='bold')
+        
+        plt.title("Sayıların Büyüklük Farkı (Yakınlaştırılmış)")
+        st.pyplot(fig)
+
+        # AŞAMA 3: Sayı Doğrusu (Pedagojik Model)
+        st.subheader("📍 3. Adım: Sayı Doğrusunda Görelim")
+        
+        fig2, ax2 = plt.subplots(figsize=(10, 2))
+        ax2.set_xlim(min_v - 0.1, max_v + 0.1)
+        ax2.set_ylim(-1, 1)
+        ax2.axhline(0, color='black', linewidth=1) # Ana çizgi
+        
+        for index, row in df.iterrows():
+            ax2.plot(row['Değer'], 0, 'ro', markersize=10)
+            ax2.text(row['Değer'], 0.3, row['Display'], ha='center', fontweight='bold', color='darkblue')
+            ax2.vlines(row['Değer'], -0.2, 0, colors='red', linestyles='--')
+
+        ax2.get_yaxis().set_visible(False)
+        st.pyplot(fig2)
+
+        # AŞAMA 4: Sonuç
+        sorted_df = df.sort_values(by="Değer")
         st.success("### ✅ Küçükten Büyüğe Sıralama")
-        # LaTeX formatında temiz sıralama
-        order_latex = " < ".join([x.replace("**", "") for x in sorted_df["Hayalet Sıfırlı Hali"]])
-        st.latex(order_latex)
+        result_latex = " < ".join(sorted_df["Display"].tolist())
+        st.latex(result_latex)
 
-        # Grafik
-        st.bar_chart(df.set_index("Orijinal Sayı")["Sayısal Değer"])
     else:
-        st.warning("Lütfen geçerli sayılar girin.")
+        st.info("Lütfen aralarında boşluk bırakarak ondalık sayılar girin (Örn: 9,56 9,6).")
