@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="Matematik Asistanı: Ondalık Sıralama", layout="centered")
@@ -29,7 +30,7 @@ if input_numbers:
     for num in raw_list:
         parts = num.split(".")
         tam_kisim = parts[0]
-        onda_birler = parts[1] if len(parts) > 1 else ""
+        unda_birler = parts[1] if len(parts) > 1 else ""
         
         # Hayalet sıfırları ekleme (Padding)
         padded_num = f"{float(num):.{max_decimal_places}f}".replace(".", ",")
